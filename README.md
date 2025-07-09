@@ -183,8 +183,8 @@ docker run -p 80:80 -p 8501:8501 cardio-ai-predictor
 
 ### AWS Production Deployment
 ```bash
-# Deploy to ECS Fargate (requires AWS CLI configured)
-python deploy/deploy_aws.py
+# Automatic deployment via GitHub Actions
+git push origin master  # Triggers CI/CD pipeline
 ```
 
 ---
