@@ -8,7 +8,7 @@
   "containerDefinitions": [
     {
       "name": "cardio-ai-predictor",
-      "image": "REPLACE_IMAGE",
+      "image": "REPLACE_IMAGE_URI",
       "portMappings": [
         {
           "containerPort": 80,
