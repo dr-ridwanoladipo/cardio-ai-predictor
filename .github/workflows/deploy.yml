@@ -1,0 +1,288 @@
+name: 🩺 Deploy Clinical Heart Disease AI to AWS
+
+on:
+  push:
+    branches:
+      - main
+      - master
+  workflow_dispatch:
+    inputs:
+      force_deploy:
+        description: 'Force deployment (skip cache)'
+        required: false
+        default: 'false'
+        type: boolean
+
+env:
+  ECR_REPOSITORY: cardio-ai-predictor
+  AWS_REGION: us-east-1
+
+jobs:
+  deploy:
+    name: 🚀 Build & Deploy Medical AI System
+    runs-on: ubuntu-latest
+
+    steps:
+    # ═══════════════════════════════════════════════════════════════════════
+    # 📥 CHECKOUT & SETUP
+    # ═══════════════════════════════════════════════════════════════════════
+    - name: 📥 Checkout repository
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0  # Full history for better caching
+
+    - name: 🏷️ Generate deployment metadata
+      id: meta
+      run: |
+        echo "timestamp=$(date +%s)" >> $GITHUB_OUTPUT
+        echo "short_sha=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+        echo "tag=sha-$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+        echo "build_date=$(date -u +'%Y-%m-%dT%H:%M:%SZ')" >> $GITHUB_OUTPUT
+        echo "commit_message=$(git log -1 --pretty=%B | head -1)" >> $GITHUB_OUTPUT
+
+    # ═══════════════════════════════════════════════════════════════════════
+    # 🔐 AWS AUTHENTICATION
+    # ═══════════════════════════════════════════════════════════════════════
+    - name: 🔐 Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ secrets.AWS_REGION }}
+        mask-aws-account-id: 'no'
+
+    - name: 🔑 Login to Amazon ECR
+      id: login-ecr
+      uses: aws-actions/amazon-ecr-login@v2
+
+    # ═══════════════════════════════════════════════════════════════════════
+    # 🐳 DOCKER BUILD & PUSH
+    # ═══════════════════════════════════════════════════════════════════════
+    - name: 🏥 Build Clinical AI Docker Image
+      id: build-image
+      env:
+        ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+        IMAGE_TAG: ${{ steps.meta.outputs.tag }}
+        FORCE_DEPLOY: ${{ github.event.inputs.force_deploy }}
+      run: |
+        # Define image URIs
+        IMAGE_URI=$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+        LATEST_URI=$ECR_REGISTRY/$ECR_REPOSITORY:latest
+        
+        echo "🏗️ Building medical AI system..."
+        echo "📍 Repository: $ECR_REPOSITORY"
+        echo "🏷️ Tag: $IMAGE_TAG"
+        echo "📅 Build date: ${{ steps.meta.outputs.build_date }}"
+        echo "💬 Commit: ${{ steps.meta.outputs.commit_message }}"
+        
+        # Pull latest for layer caching (if not force deploy)
+        if [ "$FORCE_DEPLOY" != "true" ]; then
+          echo "🚀 Pulling latest image for layer caching..."
+          docker pull $LATEST_URI || echo "⚠️ No previous image found, building from scratch"
+        fi
+        
+        # Build with metadata labels
+        docker build \
+          --cache-from $LATEST_URI \
+          --label "org.opencontainers.image.source=https://github.com/${{ github.repository }}" \
+          --label "org.opencontainers.image.version=$IMAGE_TAG" \
+          --label "org.opencontainers.image.created=${{ steps.meta.outputs.build_date }}" \
+          --label "org.opencontainers.image.revision=${{ github.sha }}" \
+          --label "org.opencontainers.image.title=Clinical Heart Disease AI" \
+          --label "org.opencontainers.image.description=Production ML system for cardiovascular risk assessment" \
+          --label "maintainer=Ridwan Oladipo, MD" \
+          --label "project=cardio-ai-predictor" \
+          --tag $IMAGE_URI \
+          --tag $LATEST_URI \
+          .
+        
+        echo "✅ Docker build completed successfully"
+        echo "image_uri=$IMAGE_URI" >> $GITHUB_OUTPUT
+        
+        # Push both tagged and latest versions
+        echo "📤 Pushing images to ECR..."
+        docker push $IMAGE_URI
+        docker push $LATEST_URI
+        
+        echo "🎉 Images pushed successfully!"
+        echo "🔗 Tagged image: $IMAGE_URI"
+        echo "🔗 Latest image: $LATEST_URI"
+
+    # ═══════════════════════════════════════════════════════════════════════
+    # 📝 ECS TASK DEFINITION UPDATE
+    # ═══════════════════════════════════════════════════════════════════════
+    - name: 📝 Update ECS task definition
+      id: task-def
+      env:
+        IMAGE_URI: ${{ steps.build-image.outputs.image_uri }}
+      run: |
+        echo "📋 Updating task definition with new image..."
+        echo "🖼️ New image URI: $IMAGE_URI"
+        
+        # Replace placeholder with actual image URI
+        sed -i "s|REPLACE_IMAGE_URI|$IMAGE_URI|g" task-definition.json
+        
+        # Validate JSON syntax
+        if ! python -m json.tool task-definition.json > /dev/null; then
+          echo "❌ Invalid JSON in task-definition.json"
+          exit 1
+        fi
+        
+        echo "✅ Task definition updated successfully"
+        
+        # Display the updated image reference for verification
+        echo "🔍 Updated task definition image:"
+        grep -A 1 '"image":' task-definition.json || echo "⚠️ Could not find image reference"
+
+    - name: 🚀 Register new ECS task definition
+      id: register-task-def
+      run: |
+        echo "📋 Registering new task definition..."
+        
+        # Register the task definition and capture output
+        TASK_DEF_OUTPUT=$(aws ecs register-task-definition \
+          --cli-input-json file://task-definition.json \
+          --query 'taskDefinition.{family:family,revision:revision,status:status}' \
+          --output json)
+        
+        echo "📄 Task definition registration result:"
+        echo "$TASK_DEF_OUTPUT" | jq '.'
+        
+        # Extract family and revision
+        FAMILY=$(echo "$TASK_DEF_OUTPUT" | jq -r '.family')
+        REVISION=$(echo "$TASK_DEF_OUTPUT" | jq -r '.revision')
+        TASK_DEF_ARN="$FAMILY:$REVISION"
+        
+        echo "✅ New task definition registered:"
+        echo "📋 Family: $FAMILY"
+        echo "🔢 Revision: $REVISION"
+        echo "🆔 ARN: $TASK_DEF_ARN"
+        
+        echo "task_def_arn=$TASK_DEF_ARN" >> $GITHUB_OUTPUT
+
+    # ═══════════════════════════════════════════════════════════════════════
+    # 🔄 ECS SERVICE DEPLOYMENT
+    # ═══════════════════════════════════════════════════════════════════════
+    - name: 🏥 Deploy to ECS Fargate
+      id: deploy-service
+      env:
+        TASK_DEF_ARN: ${{ steps.register-task-def.outputs.task_def_arn }}
+      run: |
+        echo "🚀 Deploying medical AI service to ECS..."
+        echo "🎯 Cluster: ${{ secrets.CLUSTER_NAME }}"
+        echo "⚕️ Service: ${{ secrets.SERVICE_NAME }}"
+        echo "📋 Task Definition: $TASK_DEF_ARN"
+        
+        # Update the service with new task definition
+        aws ecs update-service \
+          --cluster "${{ secrets.CLUSTER_NAME }}" \
+          --service "${{ secrets.SERVICE_NAME }}" \
+          --task-definition "$TASK_DEF_ARN" \
+          --force-new-deployment \
+          --query 'service.{serviceName:serviceName,taskDefinition:taskDefinition,desiredCount:desiredCount,runningCount:runningCount}' \
+          --output table
+        
+        echo "✅ ECS service update initiated successfully!"
+
+    - name: ⏱️ Wait for deployment completion
+      id: wait-deploy
+      timeout-minutes: 15
+      run: |
+        echo "⏳ Waiting for deployment to stabilize..."
+        echo "🏥 This may take several minutes for medical AI system to fully initialize..."
+        
+        # Wait for service to reach steady state
+        aws ecs wait services-stable \
+          --cluster "${{ secrets.CLUSTER_NAME }}" \
+          --services "${{ secrets.SERVICE_NAME }}"
+        
+        echo "✅ Deployment completed successfully!"
+        
+        # Get final service status
+        echo "📊 Final service status:"
+        aws ecs describe-services \
+          --cluster "${{ secrets.CLUSTER_NAME }}" \
+          --services "${{ secrets.SERVICE_NAME }}" \
+          --query 'services[0].{serviceName:serviceName,status:status,runningCount:runningCount,desiredCount:desiredCount,taskDefinition:taskDefinition}' \
+          --output table
+
+    # ═══════════════════════════════════════════════════════════════════════
+    # 🔍 HEALTH CHECK & VALIDATION
+    # ═══════════════════════════════════════════════════════════════════════
+    - name: 🏥 Verify medical AI system health
+      id: health-check
+      run: |
+        echo "🔍 Performing post-deployment health checks..."
+        
+        # Wait a bit for ALB to register new tasks
+        echo "⏳ Waiting 60 seconds for load balancer to register new tasks..."
+        sleep 60
+        
+        # Test API health endpoint
+        echo "🩺 Testing API health endpoint..."
+        for i in {1..5}; do
+          if curl -f -s "https://cardio.mednexai.com/health" > /dev/null; then
+            echo "✅ API health check passed (attempt $i)"
+            
+            # Get detailed health info
+            echo "📊 API Health Status:"
+            curl -s "https://cardio.mednexai.com/health" | jq '.' || echo "Could not parse health response"
+            break
+          else
+            echo "⚠️ Health check failed (attempt $i/5), retrying in 30 seconds..."
+            if [ $i -eq 5 ]; then
+              echo "❌ Health checks failed after 5 attempts"
+              echo "🔧 Check ECS service logs and ALB target group health"
+              exit 1
+            fi
+            sleep 30
+          fi
+        done
+        
+        echo "🎉 Medical AI system is healthy and ready!"
+
+    # ═══════════════════════════════════════════════════════════════════════
+    # 📊 DEPLOYMENT SUMMARY
+    # ═══════════════════════════════════════════════════════════════════════
+    - name: 📊 Deployment Summary
+      if: always()
+      run: |
+        echo "═══════════════════════════════════════════════════════════════════════"
+        echo "🩺 CLINICAL HEART DISEASE AI - DEPLOYMENT SUMMARY"
+        echo "═══════════════════════════════════════════════════════════════════════"
+        echo ""
+        echo "📅 Deployment Date: ${{ steps.meta.outputs.build_date }}"
+        echo "🏷️ Image Tag: ${{ steps.meta.outputs.tag }}"
+        echo "📍 Git Commit: ${{ github.sha }} (${{ steps.meta.outputs.short_sha }})"
+        echo "💬 Commit Message: ${{ steps.meta.outputs.commit_message }}"
+        echo "👨‍⚕️ Deployed by: ${{ github.actor }}"
+        echo ""
+        echo "🎯 Deployment Targets:"
+        echo "   • Cluster: ${{ secrets.CLUSTER_NAME }}"
+        echo "   • Service: ${{ secrets.SERVICE_NAME }}"
+        echo "   • Task Definition: ${{ steps.register-task-def.outputs.task_def_arn }}"
+        echo ""
+        echo "🌐 Production URLs:"
+        echo "   • Main App: https://cardio.mednexai.com"
+        echo "   • API Docs: https://cardio.mednexai.com/docs"
+        echo "   • Health Check: https://cardio.mednexai.com/health"
+        echo ""
+        echo "🏥 System Status: ${{ job.status == 'success' && '✅ HEALTHY' || '❌ DEPLOYMENT FAILED' }}"
+        echo ""
+        echo "═══════════════════════════════════════════════════════════════════════"
+
+    # ═══════════════════════════════════════════════════════════════════════
+    # 🚨 NOTIFICATION
+    # ═══════════════════════════════════════════════════════════════════════
+    - name: 🚨 Notify deployment status
+      if: failure()
+      run: |
+        echo "🚨 DEPLOYMENT FAILED - Medical AI system deployment encountered errors!"
+        echo "🔧 Please check the deployment logs and ECS service status immediately."
+        echo "⚕️ Patient safety may be impacted if the system is unavailable."
+        echo ""
+        echo "🔍 Troubleshooting steps:"
+        echo "1. Check ECS service events: aws ecs describe-services --cluster ${{ secrets.CLUSTER_NAME }} --services ${{ secrets.SERVICE_NAME }}"
+        echo "2. View container logs: Check CloudWatch logs at /ecs/cardio-ai-predictor"
+        echo "3. Verify target group health: Check ALB target group health in AWS Console"
+        echo "4. Test manual deployment: Consider manual rollback if needed"

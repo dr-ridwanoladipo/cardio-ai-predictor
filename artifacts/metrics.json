@@ -1,0 +1,15 @@
+{
+  "model": "XGBoost",
+  "roc_auc": 0.91,
+  "accuracy": 0.85,
+  "sensitivity": 0.97,
+  "specificity": 0.71,
+  "ppv": 0.8,
+  "npv": 0.95,
+  "confusion_matrix": {
+    "tn": 20,
+    "fp": 8,
+    "fn": 1,
+    "tp": 32
+  }
+}
