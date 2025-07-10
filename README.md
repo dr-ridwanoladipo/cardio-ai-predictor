@@ -60,13 +60,13 @@ graph LR
 
 ## 📊 Model Performance
 
-| Metric | Value | Clinical Significance |
-|--------|-------|----------------------|
-| **ROC-AUC** | 0.91  | Excellent discrimination |
-| **Sensitivity** | 97%   | Catches 97% of disease cases |
+| Metric | Value | Clinical Significance                        |
+|--------|-------|----------------------------------------------|
+| **ROC-AUC** | 0.91  | Excellent discrimination                     |
+| **Sensitivity** | 97%   | Catches 97% of disease cases                 |
 | **Specificity** | 71%   | Correctly identifies 71% of healthy patients |
-| **PPV** | 80%   | When predicting disease, 77% accurate |
-| **NPV** | 95%   | When predicting healthy, 96% accurate |
+| **PPV** | 80%   | When predicting disease, 80% accurate        |
+| **NPV** | 95%   | When predicting healthy, 95% accurate        |
 
 ![Moedel Performance](outputs/model_evaluation.png)
 > **Clinical Philosophy**: Optimized for **safety-first medicine** - better to flag healthy patients for additional testing than miss a single case of coronary artery disease.
