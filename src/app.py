@@ -69,7 +69,14 @@ def main():
         st.error("🚨 **Model Not Loaded** - Please check API logs")
         st.stop()
 
-    st.success("✅ **System Online** - Model loaded and ready for predictions")
+    # st.success("✅ **System Online** - Model loaded and ready for predictions")
+
+    st.markdown("""
+    <div style="background-color: #d4edda; border: 1px solid #c3e6cb; color: #155724; 
+               padding: 0.5rem 1rem; margin-bottom: 1rem; border-radius: 0.375rem; font-size: 0.85rem;">
+    ✅ <strong>System Online</strong> - Model loaded and ready for predictions
+    </div>
+    """, unsafe_allow_html=True)
 
     # ---------- 🩺 PATIENT INPUT PANEL ----------
     st.markdown("## 🩺 Patient Input Panel")
