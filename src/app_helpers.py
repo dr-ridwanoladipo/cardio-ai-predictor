@@ -296,6 +296,66 @@ def load_custom_css():
         border-radius: 12px !important;
         overflow: hidden !important;
     }
+    
+    
+
+/* Mobile-responsive footer centering */
+@media (max-width: 768px) {
+    /* Center all column content */
+    .stColumns > div {
+        text-align: center !important;
+    }
+    
+    /* Target Streamlit subheader specifically */
+    .stColumns h3,
+    div[data-testid="column"] h3,
+    .element-container h3 {
+        text-align: center !important;
+        margin-left: auto !important;
+        margin-right: auto !important;
+    }
+    
+    /* Mobile-responsive footer centering */
+    @media (max-width: 768px) {
+        /* Center all column content */
+        .stColumns > div {
+            text-align: center !important;
+        }
+        
+        /* Target Streamlit subheader specifically */
+        .stColumns h3,
+        div[data-testid="column"] h3,
+        .element-container h3 {
+            text-align: center !important;
+            margin-left: auto !important;
+            margin-right: auto !important;
+        }
+        
+        /* Center all text elements in columns */
+        .stColumns p,
+        .stColumns div,
+        div[data-testid="column"] p,
+        div[data-testid="column"] div {
+            text-align: center !important;
+        }
+        
+        /* Center the main caption/copyright text */
+        .element-container p {
+            text-align: center !important;
+        }
+        
+        /* Ensure markdown links are centered too */
+        .stColumns .stMarkdown,
+        div[data-testid="column"] .stMarkdown {
+            text-align: center !important;
+        }
+        
+        /* Force center alignment for any nested content */
+        .stColumns * {
+            text-align: center !important;
+        }
+    }
+    
     </style>
     """, unsafe_allow_html=True)
 
