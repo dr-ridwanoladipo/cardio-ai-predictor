@@ -5,15 +5,15 @@
 [![Live Demo](https://img.shields.io/badge/🌐_Live_Demo-cardio.mednexai.com-blue?style=for-the-badge)](https://cardio.mednexai.com)
 <br>
 [![Python](https://img.shields.io/badge/Python-3.12-3776ab?style=flat&logo=python)](https://python.org)
-<br>
+&nbsp;&nbsp;
 [![XGBoost](https://img.shields.io/badge/XGBoost-Optimized-ff6600?style=flat)](https://xgboost.readthedocs.io)
-<br>
+&nbsp;&nbsp;
 [![FastAPI](https://img.shields.io/badge/FastAPI-REST_API-009688?style=flat&logo=fastapi)](https://fastapi.tiangolo.com)
 <br>
 [![Streamlit](https://img.shields.io/badge/Streamlit-UI-ff4b4b?style=flat&logo=streamlit)](https://streamlit.io)
-<br>
+&nbsp;&nbsp;
 [![AWS](https://img.shields.io/badge/AWS-ECS_Fargate-ff9900?style=flat&logo=amazonaws)](https://aws.amazon.com)
-<br>
+&nbsp;&nbsp;
 [![Docker](https://img.shields.io/badge/Docker-Containerized-2496ed?style=flat&logo=docker)](https://docker.com)
 
 > **Built by [Ridwan Oladipo, MD](https://linkedin.com/in/ridwanoladipo) | Medical AI Specialist**  
