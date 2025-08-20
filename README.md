@@ -218,6 +218,8 @@ cardio-ai-predictor/
 ## 🔬 Clinical Dataset & Methodology
 
 **Dataset**: Cleveland Heart Disease Dataset (UCI ML Repository)
+> ⚠️ **Note**: The Cleveland dataset is relatively small (303 patients) and intended here as a **methods + deployment template**.  
+> The same pipeline is fully adaptable to larger, modern datasets (e.g., MIMIC-IV EHR, multi-center registries), ensuring scalability to real-world clinical AI.
 - **Patients**: 303 carefully curated cases
 - **Features**: 13 clinical variables (demographics, symptoms, ECG, lab values, imaging)
 - **Target**: Presence of significant coronary artery disease
